@@ -1,0 +1,5 @@
+{% extends "base.html" %}{% block title %}Report — GEO-DIAGNOSTIC PRO{% endblock %}
+{% block content %}<div class="pagehead"><div><div class="eyebrow">REPORT / SESSION #{{ record.id }}</div><h1>Diagnostic <span>Report</span></h1><p class="muted">{{ record.label }}</p></div><div><a class="ghost" href="/admin">← Dashboard</a> <a class="primary inlinebtn" href="/admin/pdf/{{ record.id }}">Download PDF ↓</a></div></div>
+<div class="panel reportmeta"><div><small>CREATED</small><b>{{ record.created_at.isoformat() }}</b></div><div><small>COMPLETED</small><b>{{ record.completed_at.isoformat() if record.completed_at else '—' }}</b></div><div><small>CONSENT</small><b>{{ record.consent_summary or '—' }}</b></div></div>
+{% for key,value in results.items() %}<section class="panel resultblock"><div class="eyebrow">{{ key.replace('_',' ')|upper }}</div><pre>{{ value|tojson(indent=2) }}</pre></section>{% else %}<div class="panel empty">No diagnostic results submitted.</div>{% endfor %}
+{% endblock %}

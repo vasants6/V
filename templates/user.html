@@ -1,0 +1,72 @@
+{% extends "base.html" %}{% block title %}Device Diagnostics — GEO-DIAGNOSTIC PRO{% endblock %}
+{% block content %}
+<div class="userhead"><div class="eyebrow"><i></i> SECURE DIAGNOSTIC SESSION</div><h1>Device <span>Diagnostics</span></h1><p class="muted">{{ label }} · Session expires {{ expires[:16] }} UTC</p></div>
+<section class="panel consent" id="consentBox"><div class="eyebrow">PLEASE READ BEFORE CONTINUING</div><h2>Your privacy comes first.</h2><p>This page can run optional checks on this device. Nothing is submitted to the administrator until you choose <b>Submit report</b>. You can skip any test.</p>
+<ul class="privacy-list"><li>GPS location is requested only after you tap “Check location” and is included only if you choose to submit it.</li><li>Camera and microphone checks are local previews/level tests. No photos, audio, or video are recorded or uploaded.</li><li>Device/browser and network results may identify your device. Review your report before submitting.</li><li>The administrator receives only the selected diagnostic results you submit, with a timestamp.</li></ul>
+<label class="checkline"><input type="checkbox" id="consent"> I have read this notice and agree to run the diagnostic tests. I understand that only the results I submit will be shared.</label>
+<button class="primary" id="startBtn" disabled>Continue to diagnostics →</button></section>
+<section id="diagnostics" class="hidden">
+<div class="notice"><b>Session active.</b> Choose any tests below. Camera and microphone are tested locally and are never uploaded.</div>
+<div class="diaggrid">
+<div class="panel diagcard"><span class="num">01</span><h3>Phone details</h3><p>Browser-exposed device and platform information.</p><button class="secondary run" data-test="phone">Run test</button><pre id="out-phone">Not tested</pre></div>
+<div class="panel diagcard"><span class="num">02</span><h3>Geolocation</h3><p>GPS coordinates, only after browser permission and your action.</p><button class="secondary" id="geoBtn">Check location</button><pre id="out-geolocation">Not requested</pre><label class="smallcheck"><input type="checkbox" id="shareGeo" disabled> Include location in submitted report</label></div>
+<div class="panel diagcard"><span class="num">03</span><h3>Network</h3><p>Connection type and browser-reported network hints.</p><button class="secondary run" data-test="network">Run test</button><pre id="out-network">Not tested</pre></div>
+<div class="panel diagcard"><span class="num">04</span><h3>Battery</h3><p>Battery information if this browser exposes it.</p><button class="secondary run" data-test="battery">Run test</button><pre id="out-battery">Not tested</pre></div>
+<div class="panel diagcard"><span class="num">05</span><h3>Camera</h3><p>Local camera preview. No capture or upload.</p><button class="secondary" id="cameraBtn">Start local preview</button><video id="cameraPreview" autoplay playsinline muted class="preview hidden"></video><pre id="out-camera">Not tested</pre></div>
+<div class="panel diagcard"><span class="num">06</span><h3>Microphone</h3><p>Local audio-level meter. Audio is not recorded or uploaded.</p><button class="secondary" id="micBtn">Test microphone</button><div class="meter"><div id="micLevel"></div></div><pre id="out-microphone">Not tested</pre></div>
+<div class="panel diagcard"><span class="num">07</span><h3>Sound</h3><p>Plays a short tone on this device when tapped.</p><button class="secondary" id="soundBtn">Play test tone</button><pre id="out-sound">Not tested</pre></div>
+<div class="panel diagcard"><span class="num">08</span><h3>Sensors</h3><p>Orientation/motion support where available.</p><button class="secondary run" data-test="sensors">Check support</button><pre id="out-sensors">Not tested</pre></div>
+<div class="panel diagcard"><span class="num">09</span><h3>Browser</h3><p>Language, timezone and browser capabilities.</p><button class="secondary run" data-test="browser">Run test</button><pre id="out-browser">Not tested</pre></div>
+<div class="panel diagcard"><span class="num">10</span><h3>Connection test</h3><p>Measures a simple request round-trip to this server.</p><button class="secondary run" data-test="connection">Run test</button><pre id="out-connection">Not tested</pre></div>
+</div>
+<section class="panel submitpanel"><div><div class="eyebrow">FINAL STEP</div><h2>Review & submit report</h2><p class="muted">Only the results listed above that you choose to submit will be shared with the administrator. Local camera/microphone media is never included.</p></div><label class="checkline"><input type="checkbox" id="submitConsent"> I confirm that I want to submit my selected diagnostic results.</label><button class="primary" id="submitBtn" disabled>Submit selected results securely →</button><div id="submitStatus" class="muted tiny"></div></section>
+</section>
+<script>
+const token = {{ token|tojson }};
+const results = {};
+const $ = id => document.getElementById(id);
+function save(key, value) { results[key] = value; $("out-"+key).textContent = JSON.stringify(value, null, 2); }
+$("consent").addEventListener("change", e => $("startBtn").disabled = !e.target.checked);
+$("startBtn").addEventListener("click", () => { $("consentBox").classList.add("hidden"); $("diagnostics").classList.remove("hidden"); });
+$("submitConsent").addEventListener("change", e => $("submitBtn").disabled = !e.target.checked);
+document.querySelectorAll(".run").forEach(btn => btn.addEventListener("click", async () => {
+ const key = btn.dataset.test;
+ try {
+  if(key==="phone") save(key,{userAgent:navigator.userAgent,platform:navigator.platform||"Not exposed",vendor:navigator.vendor||"Not exposed",deviceMemory:navigator.deviceMemory||"Not exposed",hardwareConcurrency:navigator.hardwareConcurrency||"Not exposed",screen:`${screen.width}x${screen.height}`,touchPoints:navigator.maxTouchPoints||0});
+  if(key==="network") { const c=navigator.connection||navigator.mozConnection||navigator.webkitConnection; save(key,c?{effectiveType:c.effectiveType||"unknown",downlink:c.downlink||null,rtt:c.rtt||null,saveData:c.saveData||false}:{status:navigator.onLine?"online":"offline",details:"Detailed Network Information API unavailable"}); }
+  if(key==="battery") { if(!navigator.getBattery) throw Error("Battery API is not supported by this browser."); const b=await navigator.getBattery(); save(key,{level:Math.round(b.level*100)+"%",charging:b.charging}); }
+  if(key==="sensors") save(key,{deviceOrientation:"ondeviceorientation" in window,motion:"DeviceMotionEvent" in window,accelerometer:"Accelerometer" in window,gyroscope:"Gyroscope" in window,note:"Support detection only; no continuous sensor tracking."});
+  if(key==="browser") save(key,{language:navigator.language,languages:navigator.languages,timeZone:Intl.DateTimeFormat().resolvedOptions().timeZone,cookiesEnabled:navigator.cookieEnabled,online:navigator.onLine});
+  if(key==="connection") { const t=performance.now(); const r=await fetch("/ping",{cache:"no-store"}); const ms=Math.round(performance.now()-t); save(key,{serverReachable:r.ok,roundTripMs:ms}); }
+ } catch(err) { save(key,{status:"Unavailable",reason:err.message}); }
+}));
+$("geoBtn").addEventListener("click", () => {
+ if(!navigator.geolocation) { save("geolocation",{status:"Not supported"}); return; }
+ $("geoBtn").disabled=true; $("geoBtn").textContent="Requesting permission…";
+ navigator.geolocation.getCurrentPosition(pos=>{
+  save("geolocation",{latitude:Number(pos.coords.latitude.toFixed(6)),longitude:Number(pos.coords.longitude.toFixed(6)),accuracyMeters:Math.round(pos.coords.accuracy),capturedAt:new Date().toISOString()});
+  $("shareGeo").disabled=false; $("geoBtn").textContent="Location checked";
+ },err=>{save("geolocation",{status:"Not available",reason:err.message});$("geoBtn").disabled=false;$("geoBtn").textContent="Try location again";},{enableHighAccuracy:true,timeout:12000,maximumAge:0});
+});
+$("shareGeo").addEventListener("change",e=>{ if(!e.target.checked) delete results.geolocation; });
+$("cameraBtn").addEventListener("click", async()=>{
+ try { const stream=await navigator.mediaDevices.getUserMedia({video:true,audio:false}); $("cameraPreview").srcObject=stream; $("cameraPreview").classList.remove("hidden"); save("camera",{status:"Permission granted; local preview active",mediaUploaded:false}); $("cameraBtn").textContent="Stop local preview"; $("cameraBtn").onclick=()=>{stream.getTracks().forEach(t=>t.stop());$("cameraPreview").classList.add("hidden");save("camera",{status:"Preview stopped",mediaUploaded:false});$("cameraBtn").textContent="Start local preview";$("cameraBtn").onclick=null;}; }
+ catch(e){save("camera",{status:"Unavailable",reason:e.message,mediaUploaded:false});}
+});
+let audioCtx, micStream, raf;
+$("micBtn").addEventListener("click", async()=>{
+ try { if(micStream){micStream.getTracks().forEach(t=>t.stop());cancelAnimationFrame(raf);micStream=null;$("micLevel").style.width="0%";save("microphone",{status:"Local test stopped",audioRecorded:false});$("micBtn").textContent="Test microphone";return;}
+ micStream=await navigator.mediaDevices.getUserMedia({audio:true,video:false}); audioCtx=new AudioContext(); const source=audioCtx.createMediaStreamSource(micStream); const analyser=audioCtx.createAnalyser();source.connect(analyser);const data=new Uint8Array(analyser.frequencyBinCount);
+ const draw=()=>{analyser.getByteTimeDomainData(data);let sum=0;for(const x of data){const v=(x-128)/128;sum+=v*v;}const level=Math.min(100,Math.round(Math.sqrt(sum/data.length)*250));$("micLevel").style.width=level+"%";raf=requestAnimationFrame(draw);};draw();save("microphone",{status:"Permission granted; local level meter active",audioRecorded:false,mediaUploaded:false});$("micBtn").textContent="Stop microphone test";
+ } catch(e){save("microphone",{status:"Unavailable",reason:e.message,audioRecorded:false});}
+});
+$("soundBtn").addEventListener("click",()=>{try{const ctx=new (window.AudioContext||window.webkitAudioContext)();const osc=ctx.createOscillator();const gain=ctx.createGain();osc.frequency.value=660;gain.gain.value=.08;osc.connect(gain);gain.connect(ctx.destination);osc.start();osc.stop(ctx.currentTime+.35);save("sound",{status:"Test tone played locally"});}catch(e){save("sound",{status:"Unavailable",reason:e.message});}});
+$("submitBtn").addEventListener("click",async()=>{
+ $("submitBtn").disabled=true;$("submitStatus").textContent="Submitting…";
+ const payload={consent:true,results:{...results},clientSubmittedAt:new Date().toISOString()};
+ if(!$("shareGeo").checked) delete payload.results.geolocation;
+ try{const r=await fetch("/api/submit/"+encodeURIComponent(token),{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)});const data=await r.json();if(!r.ok)throw Error(data.error||"Submission failed");$("submitStatus").textContent="✓ "+data.message+" You may now close this page.";$("submitBtn").textContent="Report submitted";}catch(e){$("submitStatus").textContent="Error: "+e.message;$("submitBtn").disabled=false;}
+});
+window.addEventListener("pagehide",()=>{document.querySelectorAll("video").forEach(v=>{if(v.srcObject)v.srcObject.getTracks().forEach(t=>t.stop());});if(micStream)micStream.getTracks().forEach(t=>t.stop());});
+</script>
+{% endblock %}

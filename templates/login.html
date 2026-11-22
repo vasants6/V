@@ -1,0 +1,11 @@
+{% extends "base.html" %}{% block title %}Admin Login — GEO-DIAGNOSTIC PRO{% endblock %}
+{% block content %}
+<section class="login-wrap">
+<div class="eyebrow"><i></i> SECURE ADMIN ACCESS</div><h1>Control <span>Center</span></h1><p class="muted">Sign in to create diagnostic sessions and review submitted reports.</p>
+<form method="post" class="panel form">
+<label>Admin username</label><input name="username" autocomplete="username" required>
+<label>Password</label><input type="password" name="password" autocomplete="current-password" required>
+<button class="primary">Authenticate <b>→</b></button>
+</form><p class="tiny">Admin credentials are configured through server environment variables. Never publish them in source code.</p>
+</section>
+{% endblock %}
